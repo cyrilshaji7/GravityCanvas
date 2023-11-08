@@ -122,6 +122,3 @@ def animate():
     
 animate()
 root.mainloop()
-
-
-
