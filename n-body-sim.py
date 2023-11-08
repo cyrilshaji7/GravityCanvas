@@ -121,4 +121,5 @@ def animate():
     root.after(ANIMATE_TIME, animate)  
     
 animate()
-root.mainloop()
+root.mainloop()]
+
