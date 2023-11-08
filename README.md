@@ -21,7 +21,7 @@ The N-body simulation is a Python program that simulates the gravitational inter
 
 Before running the N-body simulation, you need to install the following Python library:
 
-- `tkinter`: Used to create a simple animation window.
+- `numpy`:  Primarily used for numerical and scientific computing.
 
 
 ## Usage
