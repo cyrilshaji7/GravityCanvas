@@ -2,10 +2,10 @@ import random
 import math
 import numpy as np
 
-BODIES = 15
+BODIES = 50
 ANIMATE_TIME = 1
+MIN = 1e-6
 
-TAU = 2 * math.pi
 
 class Vec2:
     def __init__(self, x, y):
@@ -36,23 +36,24 @@ class Body:
         self.vel.y += self.acc.y * dt
         self.acc = Vec2(0, 0)
 
-MIN = 1e-6
+
 
 class Simulation:
     DT = 0.01
 
     def __init__(self, n):
-        random.seed(0)
+        random.seed(time.time())
         self.bodies = []
         for _ in range(n):
-            a = random.random() * TAU
+            a = random.random() * 2 * math.pi
             sin_a = math.sin(a)
             cos_a = math.cos(a)
             r = sum([random.random() for _ in range(6)]) / 3.0 - 1.0
             r = abs(r)
             pos = Vec2(cos_a, sin_a) * (n ** 0.5) * 10.0 * r
             vel = Vec2(sin_a, -cos_a)
-            body = Body(pos, vel, 1.0)
+            mass = random.randint(1, 1000)
+            body = Body(pos, vel, mass)
             self.bodies.append(body)
 
         self.bodies.sort(key=lambda body: body.pos.x ** 2 + body.pos.y ** 2)
@@ -65,7 +66,7 @@ class Simulation:
     def update(self):
         for i in range(len(self.bodies)):
             p1 = self.bodies[i].pos
-            for j in range(len(self.bodies)):
+            for j in range(i, len(self.bodies)):
                 if i != j:
                     p2 = self.bodies[j].pos
                     m2 = self.bodies[j].mass
@@ -85,12 +86,15 @@ class Simulation:
             self.bodies[i].update(self.DT)
 
 
+# code to display animation using tkinter
+#######################################################################
+
+
 import time
-
-sim = Simulation(BODIES)
-
+from tkinter import simpledialog
 import tkinter as tk
-
+import collections
+import statistics
 
 
 root = tk.Tk()
@@ -99,16 +103,22 @@ root.title("Bodies Animation")
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
 
-# Create a canvas for drawing the positions
+num_of_bodies = simpledialog.askinteger("Input", "Number of bodies: ")
+
+sim = Simulation(num_of_bodies)
 canvas = tk.Canvas(root, width=screen_width, height=screen_height)
 canvas.pack()
+
+my_queue = collections.deque(maxlen=1000)
 
 def update():
     time_start = time.time()
     sim.update()
     time_end = max((time.time() - time_start), MIN)
-    text = f"FPS: {1 / time_end:.2f}" + f"\nREAL TIME FPS: {1000/ANIMATE_TIME}"
+    my_queue.append(min(1 / time_end, 999))
+    real_time_fps = statistics.mean(data=my_queue)
 
+    text = f"FPS: {real_time_fps:.1f}\n n = {num_of_bodies}"
 
     canvas.delete("all") 
     canvas.create_text(screen_width/2, 10, text=text, fill="black", anchor="n")
@@ -121,4 +131,7 @@ def animate():
     root.after(ANIMATE_TIME, animate)  
     
 animate()
+
 root.mainloop()
+
+
