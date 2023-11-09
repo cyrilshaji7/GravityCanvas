@@ -21,7 +21,7 @@ The N-body simulation is a Python program that simulates the gravitational inter
 
 Before running the N-body simulation, you need to install the following Python library:
 
-- `tkinter`: Used to create a simple animation window.
+- `numpy`:  Primarily used for numerical and scientific computing.
 
 
 ## Usage
@@ -50,12 +50,10 @@ python n_body_simulation.py
 
 To customize the N-body simulation, you can modify the code in the following ways:
 
-1. **Custom Body Images:** Prepare custom image files for the bodies and load them in the code. Replace the image file paths in the code with your custom images.
+1. **Simulation Parameters:** Adjust the simulation parameters, such as the number of bodies (`BODIES`) and the time step (`DT`), to change the characteristics of the simulation.
 
-2. **Simulation Parameters:** Adjust the simulation parameters, such as the number of bodies (`BODIES`) and the time step (`DT`), to change the characteristics of the simulation.
+2. **Physics Simulation:** Modify the physics simulation code if you want to introduce additional forces or constraints to the system.
 
-3. **Physics Simulation:** Modify the physics simulation code if you want to introduce additional forces or constraints to the system.
-
-4. **Rendering:** You can customize the rendering by changing the colors, sizes, and shapes of the bodies on the screen.
+3. **Rendering:** You can customize the rendering by changing the colors, sizes, and shapes of the bodies on the screen.
 
 Feel free to experiment with the code and tailor the simulation to your specific needs.
