@@ -61,6 +61,7 @@ class Simulation:
         self.bodies = []
         self.bodies_destroyed = 0
         self.collisions = 0
+        self.mean_distance = 0
         for _ in range(n):
             # creating random positions, velocities and masses
             a = random.random() * 2 * math.pi
@@ -99,7 +100,8 @@ class Simulation:
         total_mass = 0
         bodies_to_destroy = set()
         bodies_to_merge = set()
-
+        total_distance = 0
+        num_pairs = 0
         for i in range(len(self.bodies)):
             total_mass += self.bodies[i].mass
             p1 = self.bodies[i].pos
@@ -115,6 +117,11 @@ class Simulation:
                     self.bodies[i].acc.x += a1.x
                     self.bodies[i].acc.y += a1.y
 
+                    # distance = math.sqrt((self.bodies[i].pos.x - self.bodies[j].pos.x)**2 + (self.bodies[i].pos.y - self.bodies[j].pos.y)**2)
+                    # total_distance += distance
+                    # num_pairs += 1
+                    
+                    # self.mean_distance = total_distance / num_pairs
                     if mag < MIN_DISTANCE:
                         self.collisions += 1
                         merged_body = self.merge_bodies(self.bodies[i], self.bodies[j])
@@ -158,7 +165,8 @@ class Application:
         self.create_menu()
         self.screen_width = root.winfo_screenwidth()
         self.screen_height = root.winfo_screenheight()
-        self.canvas = tk.Canvas(master, width=self.screen_width, height=self.screen_height)
+        self.canvas = tk.Canvas(master, width=self.screen_width, height=self.screen_height, bg='black')
+
         self.canvas.pack()
         self.real_time_fps = 0
         self.view_center = Vec2(0, 0)
@@ -210,8 +218,6 @@ class Application:
         edit_menu.add_command(label="Toggle Stats for nerds", command=self.viewStats)
 
         menubar.add_command(label="Exit", command=self.master.destroy)
-
-        
         
     def new(self):
         new_num_of_bodies = simpledialog.askinteger("New Simulation", "Enter number of bodies:", initialvalue=len(self.sim.bodies))
@@ -243,7 +249,7 @@ class Application:
         self.my_queue.append(res)
         self.real_time_fps = statistics.geometric_mean(self.my_queue)
         self.display_bodies()
-        self.fps_label = tk.Label(self.master, text=f"FPS: {self.real_time_fps:.0f}\nN Initial = {sim.bodies_initial}\nCollisions = {sim.collisions}\nBody-Collision Ratio = {((sim.bodies_initial - sim.collisions)/sim.bodies_initial ):.2f}\nTotal Kinetic Energy: {self.sim.total_kinetic_energy():.0f}", anchor="w", justify="left")
+        self.fps_label = tk.Label(self.master, text=f"FPS: {self.real_time_fps:.0f}\nN Initial = {sim.bodies_initial}\nCollisions = {sim.collisions}\nBody-Collision Ratio = {((sim.bodies_initial - sim.collisions)/sim.bodies_initial ):.2f}\nTotal Kinetic Energy: {self.sim.total_kinetic_energy():.0f}\nMean Distance Between Bodies: {sim.mean_distance:.2f}", anchor="w", justify="left", bg='black', fg='white')
          
         if self.view_stats:
             self.fps_label.place(x=10, y=10)
@@ -298,7 +304,7 @@ class Application:
             
 
             self.canvas.create_oval(x - SIZE, y - SIZE, x + SIZE, y + SIZE, fill=color)
-            self.canvas.create_text(x, y - SIZE, text=f"{body.mass}", fill="black", anchor="s")
+            self.canvas.create_text(x, y - SIZE, text=f"{body.mass}", fill="white", anchor="s")
 
 
 
