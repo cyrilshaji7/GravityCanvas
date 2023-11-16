@@ -2,9 +2,10 @@ import random
 import math
 import numpy as np
 import time
+import psutil
 
 # animation update time in ms
-ANIMATE_TIME = 10
+ANIMATE_TIME = 1
 # dampening to avoid dividing by zero and to avoid particles flying away at lightspeed
 MIN = 1e-8
 # dampening to merge bodies
@@ -19,6 +20,7 @@ SIZE = 7
 TRACER_LEN = 25
 # universal gravitational constant
 G = 1
+
 
 class Vec2:
     def __init__(self, x, y):
@@ -71,7 +73,7 @@ class Body:
 
 # the big boy class which does most of the work to approximate acceleration of every particle 
 class Simulation:
-
+    acc_record = []
     def __init__(self, n):
         random.seed(time.time())
         self.bodies_initial = n
@@ -80,7 +82,7 @@ class Simulation:
         self.collision = True
         self.collisions = 0
         self.mean_distance = 0
-        for _ in range(n):
+        for nx in range(n):
             # creating random positions, velocities and masses
             a = random.random() * 2 * math.pi
             sin_a = math.sin(a)
@@ -89,7 +91,12 @@ class Simulation:
             r = abs(r)
             pos = Vec2(cos_a, sin_a) * (math.sqrt(n)) * 10.0 * r
             vel = Vec2(sin_a, -cos_a)
-            mass = random.randint(10, MASS_MAX)
+            # mass = random.randint(10, MASS_MAX)
+            
+            if nx % 2 == 0:
+                mass = random.randint(20, 30)
+            else:
+                mass = random.randint(100, 120)
             body = Body(pos, vel, mass)
             self.bodies.append(body)
 
@@ -134,7 +141,6 @@ class Simulation:
                     a1 = r * (m2 / (max(mag_sq, MIN) * mag)) 
                     self.bodies[i].acc.x += a1.x
                     self.bodies[i].acc.y += a1.y
-
                     # distance = math.sqrt((self.bodies[i].pos.x - self.bodies[j].pos.x)**2 + (self.bodies[i].pos.y - self.bodies[j].pos.y)**2)
                     # total_distance += distance
                     # num_pairs += 1
@@ -165,12 +171,11 @@ class Simulation:
 
         for body in self.bodies:
             # updating position using verlet method of integration 
-            body.pos.x += body.vel.x * DT + 0.5 * body.acc.x * dt_squared
-            body.pos.y += body.vel.y * DT + 0.5 * body.acc.y * dt_squared
+            body.pos += body.vel * DT + body.acc * 0.5 * dt_squared
 
         for i in range(len(self.bodies)):
             for j in range(i + 1, len(self.bodies)):
-                r = self.bodies[j].pos - self.bodies[i].pos
+                r = self.bodies[j].pos - self.bodies[i].pos  # replace this with gravitatonal_force function
                 mag_sq = r.x ** 2 + r.y ** 2
                 mag = math.sqrt(mag_sq)
 
@@ -183,14 +188,33 @@ class Simulation:
                 self.bodies[j].acc -= force / self.bodies[j].mass
 
         for body in self.bodies:
-            # Update velocities using Verlet integration
-            body.vel.x += 0.5 * (body.acc.x + body.prev_acc.x) * DT
-            body.vel.y += 0.5 * (body.acc.y + body.prev_acc.y) * DT
+            body.vel += (body.acc + body.prev_acc) * 0.5  * DT
 
-            # Save current acceleration for the next iteration
+            # save current acceleration 
             body.prev_acc = body.acc
-            body.acc = Vec2(0, 0)  # Reset acceleration for the next iteration
+            body.acc = Vec2(0, 0)  # reset acceleration for the next iteration
+            
+    def runge_kutta_update(self):
+        for i in range(len(self.bodies)):
+            for j in range(i + 1, len(self.bodies)):
+                force = self.gravitational_force(self.bodies[i], self.bodies[j])
+                self.bodies[i].vel += force / self.bodies[i].mass * DT
+                self.bodies[j].vel -= force / self.bodies[j].mass * DT
 
+        for body in self.bodies:
+            body.pos += body.vel * DT
+
+        # for body in self.bodies:
+        #     body.update()
+
+    def gravitational_force(self, body1, body2):
+        r = body2.pos - body1.pos
+        mag_sq = r.x ** 2 + r.y ** 2
+        mag = max(math.sqrt(mag_sq), MIN_DISTANCE)
+
+        force_magnitude = G * (body1.mass * body2.mass) / mag_sq
+        force = r * (force_magnitude / mag)
+        return force
 
 
             
@@ -210,7 +234,7 @@ import statistics
 
 class Application:
     my_queue = collections.deque(maxlen=100)
-
+    perf = collections.deque(maxlen=10)
     def __init__(self, master, sim, computation_type):
         self.master = master
         self.sim = sim
@@ -298,25 +322,33 @@ class Application:
         self.view_stats = not self.view_stats
         
     def update_type(self):
-        new_type = simpledialog.askinteger("New Computation", "Enter new Computation method\n1: Euler\n2: Verlet", initialvalue=self.computation_type)
+        new_type = simpledialog.askinteger("New Computation", "Enter new Computation method\n1: Euler\n2: Verlet\n3: Runge-Kutta", initialvalue=self.computation_type)
         if new_type is not None:
             self.computation_type = new_type
 
     def update_animation(self):
         ############## HERE BUG
-        methods = {1: "Euler", 2: "Verlet",}
+        methods = {1: "Euler", 2: "Verlet", 3: "Runge-Kutta"}
         time_start = time.time()
         if self.computation_type == 1:
             self.sim.euler_update()
-        else:
+        elif self.computation_type == 2:
             self.sim.verlet_update()
+        else:
+            self.sim.runge_kutta_update()
+
+        cpu_usage_percent_per_core = psutil.cpu_percent(percpu=True)
+        temp = sum(cpu_usage_percent_per_core)
+        self.perf.append(temp)
+        cpu_avg = statistics.mean(self.perf)
+
         time_end = max((time.time() - time_start), MIN)
         res = min(1 / time_end, 999)
         self.my_queue.append(res)
         self.real_time_fps = statistics.geometric_mean(self.my_queue)
         self.display_bodies()
 
-        self.fps_label = tk.Label(self.master, text=f"FPS: {self.real_time_fps:.0f}\nComputation Method = {methods.get(self.computation_type)}\nN Initial = {self.sim.bodies_initial}\nCollisions = {self.sim.collisions}\nBody-Collision Ratio = {((self.sim.bodies_initial - self.sim.collisions)/self.sim.bodies_initial ):.2f}\nTotal Kinetic Energy: {self.sim.total_kinetic_energy():.0f}\nMean Distance Between Bodies: {self.sim.mean_distance:.2f}", anchor="w", justify="left", bg='black', fg='white')
+        self.fps_label = tk.Label(self.master, text=f"FPS: {self.real_time_fps:.0f}\nComputation Method = {methods.get(self.computation_type)}\nN Initial = {self.sim.bodies_initial}\nCollisions = {self.sim.collisions}\nBody-Collision Ratio = {((self.sim.bodies_initial - self.sim.collisions)/self.sim.bodies_initial ):.2f}\nTotal Kinetic Energy: {self.sim.total_kinetic_energy():.0f}\nMean Distance Between Bodies: {self.sim.mean_distance:.2f}\nCPU = {cpu_avg:.1f}", anchor="w", justify="left", bg='black', fg='white')
          
         if self.view_stats:
             pass
@@ -364,11 +396,11 @@ class Application:
             x = (body.pos.x - self.view_center.x) * 20 * self.scale_factor + self.screen_width / 2
             y = (body.pos.y - self.view_center.y) * 20 * self.scale_factor + self.screen_height / 2
 
-            normalized_mass = body.mass / 100
-            color_value = int(255 * normalized_mass)
+            normalized_acc = body.prev_acc.get_length() / 1000
+            momenteum = body.mass * body.vel.get_length() / 5000
+            color_value = int(255 * momenteum)
             color_value = max(0, min(color_value, 255))
             color = "#{:02X}00{:02X}".format(color_value, 255 - color_value)
-
             
             if self.tracer_toggled:
                 self.tracer(body, color, x, y)
@@ -379,9 +411,12 @@ class Application:
 
 
 
+
+
 if __name__ == "__main__":
+
     num_of_bodies = simpledialog.askinteger("Input", "Number of bodies:")
-    computation_type = simpledialog.askinteger("Input", "1: Euler\n2: Verlet")
+    computation_type = simpledialog.askinteger("Input", "1: Euler\n2: Verlet\n3: Runge-Kutta")
     sim = Simulation(num_of_bodies)
 
     root = tk.Tk()
@@ -394,3 +429,25 @@ if __name__ == "__main__":
 
     root.mainloop()
 
+# PERFORMANCE TESTING
+
+# import timeit
+
+# sim = Simulation(n=100)
+# def verlet():
+#     sim.verlet_update()
+
+# def euler():
+#     sim.euler_update()
+
+# def runge_kutta():
+#     sim.runge_kutta_update()
+
+# number = 100
+# time_verlet = timeit.timeit(verlet, number=number)
+# time_euler = timeit.timeit(euler, number=number)
+# time_runge_kutta = timeit.timeit(runge_kutta, number=number)
+
+# print(f"{number} iterations of 100 bodies in euler takes {time_euler} seconds")
+# print(f"{number} iterations of 100 bodies in verlet takes {time_verlet} seconds")
+# print(f"{number} iterations of 100 bodies in runge-kutta takes {time_runge_kutta} seconds")
